@@ -11,7 +11,7 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(OGRE_INCLUDE);$(OGRE_INCLUDE)/OGRE;$(OGRE_INCLUDE)/OGRE/Overlay;$(OGRE_INCLUDE)/OIS;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(OGRE_INCLUDE);$(OGRE_INCLUDE)/OGRE-2.2;$(OGRE_INCLUDE)/OGRE-2.2/Overlay;$(OGRE_INCLUDE)/OIS;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(OGRE_LIB);$(OGRE_LIB)/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

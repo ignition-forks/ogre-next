@@ -24,5 +24,5 @@ ogre_config_framework(OgreRTShaderSystem)
 ogre_config_component(OgreRTShaderSystem)
 
 install(FILES ${HEADER_FILES}
-  DESTINATION include/OGRE/RTShaderSystem
+  DESTINATION ${OGRE_INCLUDE_INSTALL}/RTShaderSystem
 )
