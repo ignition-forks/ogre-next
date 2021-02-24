@@ -8,4 +8,4 @@ Description: Mesh Lod Generator for OGRE
 Version: @OGRE_VERSION@
 Requires: OGRE = @OGRE_VERSION@
 Libs: -L${libdir} -lOgreMeshLodGenerator@OGRE_LIB_SUFFIX@
-Cflags: -I${includedir}/OGRE/MeshLodGenerator @OGRE_CFLAGS@
+Cflags: -I${includedir}/OGRE-2.2/MeshLodGenerator @OGRE_CFLAGS@

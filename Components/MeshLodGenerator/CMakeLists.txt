@@ -37,5 +37,5 @@ ogre_config_framework(OgreMeshLodGenerator)
 ogre_config_component(OgreMeshLodGenerator)
 
 install(FILES ${HEADER_FILES}
-  DESTINATION include/OGRE/MeshLodGenerator
+  DESTINATION ${OGRE_INCLUDE_INSTALL}/MeshLodGenerator
 )

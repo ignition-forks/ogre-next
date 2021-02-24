@@ -8,4 +8,4 @@ Description: Overlay component for OGRE
 Version: @OGRE_VERSION@
 Requires: OGRE = @OGRE_VERSION@
 Libs: -L${libdir} -lOgreOverlay@OGRE_LIB_SUFFIX@
-Cflags: -I${includedir}/OGRE/Overlay @OGRE_CFLAGS@
+Cflags: -I${includedir}/OGRE-2.2/Overlay @OGRE_CFLAGS@

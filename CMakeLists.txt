@@ -28,6 +28,8 @@ if(OGRE_BUILD_PLATFORM_APPLE_IOS AND (CMAKE_VERSION VERSION_EQUAL 2.8.2) AND (CM
 	message(FATAL_ERROR "CMake 2.8.2 cannot create compatible Xcode projects for iOS, please download the latest version or an older release from http://www.cmake.org/files/")
 endif()
 
+set (OGRE_INCLUDE_INSTALL "include/OGRE-2.2")
+
 # Use relative paths
 # This is mostly to reduce path size for command-line limits on windows
 if(WIN32)

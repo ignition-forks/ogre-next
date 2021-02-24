@@ -67,9 +67,9 @@ elseif (UNIX)
   if (APPLE)
     set(OGRE_PLUGIN_PATH "/")
   else()
-    set(OGRE_PLUGIN_PATH "/OGRE")
+    set(OGRE_PLUGIN_PATH "/")
   endif(APPLE)
-  set(OGRE_SAMPLE_PATH "/OGRE/Samples")
+  set(OGRE_SAMPLE_PATH "/OGRE-2.2/Samples")
 endif ()
 
 # create vcproj.user file for Visual Studio to set debug working directory
