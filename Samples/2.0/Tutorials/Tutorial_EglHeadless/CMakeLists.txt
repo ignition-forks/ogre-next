@@ -16,8 +16,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/Components/Hlms/Common/include)
 ogre_add_component_include_dir(Hlms/Pbs)
 ogre_add_component_include_dir(Hlms/Unlit)
+ogre_add_component_include_dir(Overlays)
 
-add_recursive( ./ SOURCE_FILES )
+# add_recursive( ./ SOURCE_FILES )
+
+set(SOURCE_FILES Tutorial_EglHeadless.cpp)
 
 set( TUTORIAL_RESOURCES ${SAMPLE_COMMON_BASIC_RESOURCES} )
 
@@ -26,3 +29,7 @@ ogre_add_executable(Sample_Tutorial_EglHeadless MACOSX_BUNDLE ${SOURCE_FILES} ${
 target_link_libraries(Sample_Tutorial_EglHeadless ${OGRE_LIBRARIES} ${OGRE_SAMPLES_LIBRARIES})
 ogre_config_sample_lib(Sample_Tutorial_EglHeadless)
 
+ogre_add_executable(Sample_Tutorial_EglHeadless2 MACOSX_BUNDLE main.cpp ${TUTORIAL_RESOURCES} )
+target_link_libraries(Sample_Tutorial_EglHeadless2 ${OGRE_LIBRARIES} ${OGRE_SAMPLES_LIBRARIES})
+ogre_config_sample_lib(Sample_Tutorial_EglHeadless2)
+ogre_config_sample_pkg(Sample_Tutorial_EglHeadless2)
