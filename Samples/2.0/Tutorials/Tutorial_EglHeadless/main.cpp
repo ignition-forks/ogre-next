@@ -14,10 +14,25 @@
 #include "OgreItem.h"
 #include "OgreTextureGpuManager.h"
 #include "OgreTextureFilters.h"
+#include "OgreDepthBuffer.h"
+#include "OgreMeshManager.h"
+#include "OgreMeshManager2.h"
+#include "OgreMesh2.h"
+#include "OgreSubMesh2.h"
 
 #include "Compositor/OgreCompositorManager2.h"
+#include <Compositor/OgreTextureDefinition.h>
+#include <Compositor/OgreCompositorNodeDef.h>
+#include <Compositor/Pass/PassClear/OgreCompositorPassClearDef.h>
+#include <Compositor/Pass/PassQuad/OgreCompositorPassQuadDef.h>
+#include <Compositor/Pass/PassScene/OgreCompositorPassSceneDef.h>
+#include <Compositor/OgreCompositorWorkspaceDef.h>
+#include <Compositor/OgreCompositorWorkspace.h>
+#include <Compositor/OgreCompositorShadowNode.h>
 
 #include "OgreWindowEventUtilities.h"
+
+#include <OgreHlmsUnlitDatablock.h>
 
 #include <OgreOverlayPrerequisites.h>
 #include <OgreOverlayManager.h>
@@ -25,10 +40,10 @@
 #include <OgreOverlayContainer.h>
 #include <OgreFontManager.h>
 #include <OgreOverlaySystem.h>
+using namespace Ogre;
 
 static void registerHlms( void )
 {
-    using namespace Ogre;
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE
     // Note:  macBundlePath works for iOS too. It's misnamed.
@@ -163,8 +178,6 @@ int main( int argc, const char *argv[] )
 
     Root *root = OGRE_NEW Root( "plugins.cfg", "ogre.cfg", "Ogre2_test.log" );
 
-    // auto ogreOverlaySystem = new v1::OverlaySystem();
-
     Ogre::RenderSystem *renderSys;
     const Ogre::RenderSystemList *rsList;
 
@@ -254,21 +267,10 @@ int main( int argc, const char *argv[] )
     Ogre::NameValuePairList params;
     Ogre::Window * window = nullptr;
 
-      // params["parentWindowHandle"] = _handle;
-
-    // params["FSAA"] = std::to_string(_antiAliasing);
     params["stereoMode"] = "Frame Sequential";
-
-    // TODO(anyone): determine api without qt
 
     // Hide window if dimensions are less than or equal to one.
     params["border"] = "none";
-
-    // std::ostringstream stream;
-    // stream << "OgreWindow(0)" << "_" << _handle;
-
-    // Needed for retina displays
-    // params["contentScalingFactor"] = std::to_string(_ratio);
 
     // Ogre 2 PBS expects gamma correction
     params["gamma"] = "Yes";
@@ -302,9 +304,7 @@ int main( int argc, const char *argv[] )
 
     if (window)
     {
-      // window->setActive(true);
       window->_setVisible(true);
-
       // Windows needs to reposition the render window to 0,0.
       window->reposition(0, 0);
     }
@@ -329,7 +329,6 @@ int main( int argc, const char *argv[] )
     // spot lights to work
     sceneManager->setForwardClustered(true, 16, 8, 24, 96, 0, 0, 1, 500);
 
-
     // Create & setup camera
     Camera *camera = sceneManager->createCamera( "Main Camera" );
 
@@ -343,10 +342,184 @@ int main( int argc, const char *argv[] )
 
     // Setup a basic compositor with a blue clear colour
     CompositorManager2 *compositorManager = root->getCompositorManager2();
-    const String workspaceName( "Demo Workspace" );
     const ColourValue backgroundColour( 0.f, 0.0f, 0.0f );
-    compositorManager->createBasicWorkspaceDef( workspaceName, backgroundColour, IdString() );
-    compositorManager->addWorkspace( sceneManager, window->getTexture(), camera, workspaceName, true );
+
+    const Ogre::String workspaceName( "ShadowMapFromCodeWorkspace" );
+
+    if( !compositorManager->hasWorkspaceDefinition( workspaceName ) )
+    {
+        compositorManager->createBasicWorkspaceDef( workspaceName, backgroundColour,
+                                                    Ogre::IdString() );
+
+        const Ogre::String nodeDefName = "AutoGen " +
+                                         Ogre::IdString(workspaceName +
+                                                        "/Node").getReleaseText();
+        Ogre::CompositorNodeDef *nodeDef =
+                compositorManager->getNodeDefinitionNonConst( nodeDefName );
+
+        Ogre::CompositorTargetDef *targetDef = nodeDef->getTargetPass( 0 );
+        const Ogre::CompositorPassDefVec &passes = targetDef->getCompositorPasses();
+
+        assert( dynamic_cast<Ogre::CompositorPassSceneDef*>( passes[0] ) );
+        Ogre::CompositorPassSceneDef *passSceneDef =
+                static_cast<Ogre::CompositorPassSceneDef*>( passes[0] );
+        passSceneDef->mShadowNode = "ShadowMapFromCodeShadowNode";
+/////////////////////////// createPcfShadowNode
+        Ogre::ShadowNodeHelper::ShadowParamVec shadowParams;
+
+        Ogre::ShadowNodeHelper::ShadowParam shadowParam;
+        memset( &shadowParam, 0, sizeof(shadowParam) );
+
+        //First light, directional
+        shadowParam.technique = Ogre::SHADOWMAP_PSSM;
+        shadowParam.numPssmSplits = 3u;
+        shadowParam.resolution[0].x = 2048u;
+        shadowParam.resolution[0].y = 2048u;
+        for( size_t i=1u; i<4u; ++i )
+        {
+            shadowParam.resolution[i].x = 1024u;
+            shadowParam.resolution[i].y = 1024u;
+        }
+        shadowParam.atlasStart[0].x = 0u;
+        shadowParam.atlasStart[0].y = 0u;
+        shadowParam.atlasStart[1].x = 0u;
+        shadowParam.atlasStart[1].y = 2048u;
+        shadowParam.atlasStart[2].x = 1024u;
+        shadowParam.atlasStart[2].y = 2048u;
+
+        shadowParam.supportedLightTypes = 0u;
+        shadowParam.addLightType( Ogre::Light::LT_DIRECTIONAL );
+        shadowParams.push_back( shadowParam );
+
+        //Second light, directional, spot or point
+        shadowParam.technique = Ogre::SHADOWMAP_FOCUSED;
+        shadowParam.resolution[0].x = 2048u;
+        shadowParam.resolution[0].y = 2048u;
+        shadowParam.atlasStart[0].x = 0u;
+        shadowParam.atlasStart[0].y = 2048u + 1024u;
+
+        shadowParam.supportedLightTypes = 0u;
+        shadowParam.addLightType( Ogre::Light::LT_DIRECTIONAL );
+        shadowParam.addLightType( Ogre::Light::LT_POINT );
+        shadowParam.addLightType( Ogre::Light::LT_SPOTLIGHT );
+        shadowParams.push_back( shadowParam );
+
+        //Third light, directional, spot or point
+        shadowParam.atlasStart[0].y = 2048u + 1024u + 2048u;
+        shadowParams.push_back( shadowParam );
+
+        Ogre::ShadowNodeHelper::createShadowNodeWithSettings( compositorManager,
+                                                              renderSys->getCapabilities(),
+                                                              "ShadowMapFromCodeShadowNode",
+                                                              shadowParams, false );
+///////////////////////////
+      // void createEsmShadowNodes(void)
+      {
+        Ogre::ShadowNodeHelper::ShadowParamVec shadowParams;
+
+        Ogre::ShadowNodeHelper::ShadowParam shadowParam;
+        memset( &shadowParam, 0, sizeof(shadowParam) );
+
+        //First light, directional
+        shadowParam.technique = Ogre::SHADOWMAP_PSSM;
+        shadowParam.numPssmSplits = 3u;
+        shadowParam.resolution[0].x = 1024u;
+        shadowParam.resolution[0].y = 1024u;
+        shadowParam.resolution[1].x = 2048u;
+        shadowParam.resolution[1].y = 2048u;
+        shadowParam.resolution[2].x = 1024u;
+        shadowParam.resolution[2].y = 1024u;
+        shadowParam.atlasStart[0].x = 0u;
+        shadowParam.atlasStart[0].y = 0u;
+        shadowParam.atlasStart[1].x = 0u;
+        shadowParam.atlasStart[1].y = 1024u;
+        shadowParam.atlasStart[2].x = 1024u;
+        shadowParam.atlasStart[2].y = 0u;
+
+        shadowParam.supportedLightTypes = 0u;
+        shadowParam.addLightType( Ogre::Light::LT_DIRECTIONAL );
+        shadowParams.push_back( shadowParam );
+
+        //Second light, directional, spot or point
+        shadowParam.technique = Ogre::SHADOWMAP_FOCUSED;
+        shadowParam.resolution[0].x = 1024u;
+        shadowParam.resolution[0].y = 1024u;
+        shadowParam.atlasStart[0].x = 0u;
+        shadowParam.atlasStart[0].y = 2048u + 1024u;
+
+        shadowParam.supportedLightTypes = 0u;
+        shadowParam.addLightType( Ogre::Light::LT_DIRECTIONAL );
+        shadowParam.addLightType( Ogre::Light::LT_POINT );
+        shadowParam.addLightType( Ogre::Light::LT_SPOTLIGHT );
+        shadowParams.push_back( shadowParam );
+
+        //Third light, directional, spot or point
+        shadowParam.atlasStart[0].x = 1024u;
+        shadowParams.push_back( shadowParam );
+
+        const Ogre::RenderSystemCapabilities *capabilities = renderSys->getCapabilities();
+        Ogre::RenderSystemCapabilities capsCopy = *capabilities;
+
+        //Force the utility to create ESM shadow node with compute filters.
+        //Otherwise it'd create using what's supported by the current GPU.
+        capsCopy.setCapability( Ogre::RSC_COMPUTE_PROGRAM );
+        Ogre::ShadowNodeHelper::createShadowNodeWithSettings(
+                    compositorManager, &capsCopy,
+                    "ShadowMapFromCodeEsmShadowNodeCompute",
+                    shadowParams, true );
+
+        //Force the utility to create ESM shadow node with graphics filters.
+        //Otherwise it'd create using what's supported by the current GPU.
+        capsCopy.unsetCapability( Ogre::RSC_COMPUTE_PROGRAM );
+        Ogre::ShadowNodeHelper::createShadowNodeWithSettings(
+                    compositorManager, &capsCopy,
+                    "ShadowMapFromCodeEsmShadowNodePixelShader",
+                    shadowParams, true );
+      }
+    }
+
+    auto mWorkspace = compositorManager->addWorkspace( sceneManager, window->getTexture(), camera, workspaceName, true );
+
+    // Ogre::Hlms *hlmsUnlit = root->getHlmsManager()->getHlms( Ogre::HLMS_UNLIT );
+    //
+    // Ogre::HlmsMacroblock macroblock2;
+    // macroblock2.mDepthCheck = false;
+    // Ogre::HlmsBlendblock blendblock;
+    //
+    // const Ogre::String shadowNodeName = "ShadowMapFromCodeShadowNode";
+    //
+    // Ogre::CompositorShadowNode *shadowNode = mWorkspace->findShadowNode( shadowNodeName );
+    // const Ogre::CompositorShadowNodeDef *shadowNodeDef = shadowNode->getDefinition();
+    //
+    // for( int i=0; i<5; ++i )
+    // {
+    //     const Ogre::String datablockName( "depthShadow" + Ogre::StringConverter::toString( i ) );
+    //     Ogre::HlmsUnlitDatablock *depthShadow =
+    //             (Ogre::HlmsUnlitDatablock*)hlmsUnlit->getDatablock( datablockName );
+    //
+    //     if( !depthShadow )
+    //     {
+    //         depthShadow = (Ogre::HlmsUnlitDatablock*)hlmsUnlit->createDatablock(
+    //                     datablockName, datablockName, macroblock2, blendblock,
+    //                     Ogre::HlmsParamVec() );
+    //     }
+    //
+    //     const Ogre::ShadowTextureDefinition *shadowTexDef =
+    //             shadowNodeDef->getShadowTextureDefinition( i );
+    //
+    //     Ogre::TextureGpu *tex = shadowNode->getDefinedTexture( shadowTexDef->getTextureNameStr() );
+    //     depthShadow->setTexture( 0, tex );
+    //
+    //     //If it's an UV atlas, then only display the relevant section.
+    //     Ogre::Matrix4 uvOffsetScale;
+    //     uvOffsetScale.makeTransform( Ogre::Vector3( shadowTexDef->uvOffset.x,
+    //                                                 shadowTexDef->uvOffset.y, 0.0f ),
+    //                                  Ogre::Vector3( shadowTexDef->uvLength.x,
+    //                                                 shadowTexDef->uvLength.y, 1.0f ),
+    //                                  Ogre::Quaternion::IDENTITY );
+    //     depthShadow->setEnableAnimationMatrix( 0, true );
+    //     depthShadow->setAnimationMatrix( 0, uvOffsetScale );
+    // }
 
     Ogre::String meshName = "Sphere1000.mesh";
 
@@ -354,6 +527,12 @@ int main( int argc, const char *argv[] )
                                                  Ogre::ResourceGroupManager::
                                                  AUTODETECT_RESOURCE_GROUP_NAME,
                                                  Ogre::SCENE_DYNAMIC );
+
+    Ogre::Item *item2 = sceneManager->createItem( "Cube_d.mesh",
+                                                 Ogre::ResourceGroupManager::
+                                                 AUTODETECT_RESOURCE_GROUP_NAME,
+                                                 Ogre::SCENE_DYNAMIC );
+
 
     Ogre::HlmsManager *hlmsManager = root->getHlmsManager();
 
@@ -367,21 +546,9 @@ int main( int argc, const char *argv[] )
                                           Ogre::HlmsBlendblock(),
                                           Ogre::HlmsParamVec(), true) );
 
-    // Ogre::TextureGpu *texture = textureMgr->createOrRetrieveTexture(
-    //                                 "SaintPetersBasilica.dds",
-    //                                 Ogre::GpuPageOutStrategy::Discard,
-    //                                 Ogre::TextureFlags::PrefersLoadingFromFileAsSRGB,
-    //                                 Ogre::TextureTypes::TypeCube,
-    //                                 Ogre::ResourceGroupManager::
-    //                                 AUTODETECT_RESOURCE_GROUP_NAME,
-    //                                 Ogre::TextureFilter::TypeGenerateDefaultMipmaps );
-    //
-    // datablock->setTexture( Ogre::PBSM_REFLECTION, texture );
     datablock->setDiffuse( Ogre::Vector3( 0, 0, 0.8 ) );
     datablock->setSpecular( Ogre::Vector3( 0.5f, 0.5f, 0.5f ) );
-    // datablock->setEmissive( Ogre::Vector3( 1.0f, 1.0f, 1.0f ) );
     datablock->setEmissive( Ogre::Vector3( .0f, .0f, .0f ) );
-    // datablock->setWorkflow(Ogre::HlmsPbsDatablock::MetallicWorkflow);
     datablock->setMetalness(0);
     datablock->setRoughness( 0.5f );
     datablock->setReceiveShadows(true);
@@ -401,39 +568,61 @@ int main( int argc, const char *argv[] )
     macroblock.mDepthBiasConstant = 1;
     datablock->setMacroblock(macroblock);
 
-    std::cerr << "datablock->getNameStr() " << *datablock->getNameStr() << '\n';
-
-    // datablock->setFresnel( Ogre::Vector3( 5 / Ogre::max( 1, (float)(5-1) ) ), false );
     item->setCastShadows(true);
+    item2->setCastShadows(true);
 
-    // item->setDatablock( "myRealName" );
     item->setDatablock( datablock );
-
-
-    // item->setDatablock( "Rocks" );
-    item->setVisibilityFlags( 0x000000001 );
+    item2->setDatablock( datablock );
 
     auto node = sceneManager->getRootSceneNode( Ogre::SCENE_DYNAMIC )->
             createChildSceneNode( Ogre::SCENE_DYNAMIC );
-
-    node->setPosition( 0, 0, 0 );
+    node->setPosition( 0, 1, 0 );
     node->setScale( 0.65f, 0.65f, 0.65f );
-
     node->attachObject( item );
 
-    Ogre::SceneNode *rootNode = sceneManager->getRootSceneNode();
+    auto node2 = sceneManager->getRootSceneNode( Ogre::SCENE_DYNAMIC )->
+            createChildSceneNode( Ogre::SCENE_DYNAMIC );
+    node2->setPosition( 0, -4, 0 );
+    node2->setScale( 3.65f, 3.65f, 3.65f );
+    node2->attachObject( item2 );
 
-    Ogre::Light *light = sceneManager->createLight();
-    Ogre::SceneNode *lightNode = rootNode->createChildSceneNode();
+    Ogre::SceneNode *rootNode = sceneManager->getRootSceneNode();
+    Ogre::Light *light;// = sceneManager->createLight();
+    Ogre::SceneNode *lightNode;
+    // = rootNode->createChildSceneNode();
+    // lightNode->attachObject( light );
+    // lightNode->setPosition(0, 7, 0);
+    // light->setPowerScale( 4.0f );
+    // light->setType( Ogre::Light::LT_DIRECTIONAL );
+    // light->setDirection( Ogre::Vector3( -1, -1, -1 ).normalisedCopy() );
+    //
+    // light = sceneManager->createLight();
+    // lightNode = rootNode->createChildSceneNode();
+    // lightNode->attachObject( light );
+    // light->setDiffuseColour( 0.8f, 0.4f, 0.2f ); //Warm
+    // light->setSpecularColour( 0.8f, 0.4f, 0.2f );
+    // light->setPowerScale( Ogre::Math::PI );
+    // light->setType( Ogre::Light::LT_SPOTLIGHT );
+    // lightNode->setPosition( -10.0f, 10.0f, 10.0f );
+    // light->setDirection( Ogre::Vector3( 1, -1, -1 ).normalisedCopy() );
+    // light->setAttenuationBasedOnRadius( 10.0f, 0.01f );
+
+    light = sceneManager->createLight();
+    lightNode = rootNode->createChildSceneNode();
     lightNode->attachObject( light );
-    light->setPowerScale( 1.0f );
-    light->setType( Ogre::Light::LT_DIRECTIONAL );
-    light->setDirection( Ogre::Vector3( -1, -1, -1 ).normalisedCopy() );
+    light->setDiffuseColour( 1, 1, 1 ); //Cold
+    light->setSpecularColour( 1, 1, 1 );
+    light->setPowerScale( Ogre::Math::PI );
+    light->setType( Ogre::Light::LT_SPOTLIGHT );
+    lightNode->setPosition( 0.0f, 8.0f, 0 );
+    light->setDirection( Ogre::Vector3( 0, -1, 0 ).normalisedCopy() );
+    light->setAttenuationBasedOnRadius( 3.0f, 0.01f );
 
     sceneManager->setAmbientLight( Ogre::ColourValue( 0.3f, 0.5f, 0.7f ) * 0.1f * 0.75f,
                                    Ogre::ColourValue( 0.6f, 0.45f, 0.3f ) * 0.065f * 0.75f,
                                    -light->getDirection() + Ogre::Vector3::UNIT_Y * 0.2f );
 
+    /////////////////////////////// Ligh Compositor
     bool bQuit = false;
 
     // Run for 120 frames and exit
